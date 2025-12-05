@@ -1,117 +1,111 @@
 #!/usr/bin/env python3
 """
-Advent of Claude 2025 - Day 5: Count Accessible Paper Rolls
+Advent of Claude 2025 - Day 5: Cafeteria (Fresh Ingredient IDs)
 
-A roll of paper (@) can be accessed by a forklift if there are fewer than 4
-rolls of paper in the 8 adjacent positions.
+Part 1: Count how many available ingredient IDs are fresh (within any range).
+Part 2: Count total unique ingredient IDs considered fresh across all ranges.
 """
 
-def count_accessible_rolls(grid_str: str) -> int:
+def parse_input(data: str) -> tuple[list[tuple[int, int]], list[int]]:
     """
-    Count the number of paper rolls that can be accessed by forklifts.
-
-    A roll is accessible if it has fewer than 4 adjacent rolls (in the 8
-    surrounding positions).
+    Parse the database file into ranges and available ingredient IDs.
+    Returns (ranges, available_ids).
     """
-    # Parse the grid
-    lines = grid_str.strip().split('\n')
-    grid = [list(line) for line in lines]
-    rows = len(grid)
-    cols = len(grid[0]) if rows > 0 else 0
+    parts = data.strip().split('\n\n')
 
-    # 8 directions: up, down, left, right, and 4 diagonals
-    directions = [
-        (-1, -1), (-1, 0), (-1, 1),
-        (0, -1),           (0, 1),
-        (1, -1),  (1, 0),  (1, 1)
-    ]
+    # Parse ranges
+    ranges = []
+    for line in parts[0].strip().split('\n'):
+        if '-' in line:
+            start, end = line.split('-')
+            ranges.append((int(start), int(end)))
 
-    accessible_count = 0
+    # Parse available ingredient IDs (Part 1 only)
+    available_ids = []
+    if len(parts) > 1:
+        for line in parts[1].strip().split('\n'):
+            if line.strip():
+                available_ids.append(int(line.strip()))
 
-    for row in range(rows):
-        for col in range(cols):
-            # Only check positions with paper rolls
-            if grid[row][col] != '@':
-                continue
-
-            # Count adjacent paper rolls
-            adjacent_rolls = 0
-            for dr, dc in directions:
-                new_row, new_col = row + dr, col + dc
-                # Check bounds
-                if 0 <= new_row < rows and 0 <= new_col < cols:
-                    if grid[new_row][new_col] == '@':
-                        adjacent_rolls += 1
-
-            # Accessible if fewer than 4 adjacent rolls
-            if adjacent_rolls < 4:
-                accessible_count += 1
-
-    return accessible_count
+    return ranges, available_ids
 
 
-def visualize_accessible(grid_str: str) -> str:
-    """
-    Return a visualization of the grid with accessible rolls marked as 'x'.
-    """
-    lines = grid_str.strip().split('\n')
-    grid = [list(line) for line in lines]
-    rows = len(grid)
-    cols = len(grid[0]) if rows > 0 else 0
+def is_fresh(ingredient_id: int, ranges: list[tuple[int, int]]) -> bool:
+    """Check if an ingredient ID falls within any fresh range."""
+    for start, end in ranges:
+        if start <= ingredient_id <= end:
+            return True
+    return False
 
-    directions = [
-        (-1, -1), (-1, 0), (-1, 1),
-        (0, -1),           (0, 1),
-        (1, -1),  (1, 0),  (1, 1)
-    ]
 
-    result = [list(line) for line in lines]
+def count_fresh_available(ranges: list[tuple[int, int]], available_ids: list[int]) -> int:
+    """Part 1: Count how many available ingredient IDs are fresh."""
+    return sum(1 for id in available_ids if is_fresh(id, ranges))
 
-    for row in range(rows):
-        for col in range(cols):
-            if grid[row][col] != '@':
-                continue
 
-            adjacent_rolls = 0
-            for dr, dc in directions:
-                new_row, new_col = row + dr, col + dc
-                if 0 <= new_row < rows and 0 <= new_col < cols:
-                    if grid[new_row][new_col] == '@':
-                        adjacent_rolls += 1
+def merge_ranges(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Merge overlapping and adjacent ranges."""
+    if not ranges:
+        return []
 
-            if adjacent_rolls < 4:
-                result[row][col] = 'x'
+    # Sort by start position
+    sorted_ranges = sorted(ranges)
+    merged = [sorted_ranges[0]]
 
-    return '\n'.join(''.join(row) for row in result)
+    for start, end in sorted_ranges[1:]:
+        last_start, last_end = merged[-1]
+        # Check if overlapping or adjacent (end + 1 >= start means they can merge)
+        if start <= last_end + 1:
+            # Extend the last range
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            # Add as a new range
+            merged.append((start, end))
+
+    return merged
+
+
+def count_total_fresh_ids(ranges: list[tuple[int, int]]) -> int:
+    """Part 2: Count total unique ingredient IDs considered fresh."""
+    merged = merge_ranges(ranges)
+    total = 0
+    for start, end in merged:
+        # Range is inclusive, so count is end - start + 1
+        total += end - start + 1
+    return total
 
 
 if __name__ == '__main__':
     import sys
 
     # Test with the example from the puzzle
-    example = """..@@.@@@@.
-@@@.@.@.@@
-@@@@@.@.@@
-@.@@@@..@.
-@@.@@@@.@@
-.@@@@@@@.@
-.@.@.@.@@@
-@.@@@.@@@@
-.@@@@@@@@.
-@.@.@@@.@."""
+    example = """3-5
+10-14
+16-20
+12-18
 
-    print("Example grid:")
-    print(example)
-    print()
-    print("Accessible rolls visualization:")
-    print(visualize_accessible(example))
-    print()
-    example_count = count_accessible_rolls(example)
-    print(f"Example answer: {example_count} accessible rolls")
-    print(f"Expected: 13")
+1
+5
+8
+11
+17
+32"""
+
+    ranges, available_ids = parse_input(example)
+
+    print("Example:")
+    print(f"  Ranges: {ranges}")
+    print(f"  Available IDs: {available_ids}")
     print()
 
-    # Try to read the actual puzzle input from file or stdin
+    part1_example = count_fresh_available(ranges, available_ids)
+    print(f"  Part 1 (fresh available): {part1_example} (expected: 3)")
+
+    part2_example = count_total_fresh_ids(ranges)
+    print(f"  Part 2 (total fresh IDs): {part2_example} (expected: 14)")
+    print()
+
+    # Try to read the actual puzzle input
     puzzle_input = None
 
     # First try to read from input.txt
@@ -126,8 +120,13 @@ if __name__ == '__main__':
         puzzle_input = sys.stdin.read()
 
     if puzzle_input and puzzle_input.strip():
-        answer = count_accessible_rolls(puzzle_input)
-        print(f"Puzzle answer: {answer} accessible rolls")
+        ranges, available_ids = parse_input(puzzle_input)
+
+        part1 = count_fresh_available(ranges, available_ids)
+        print(f"Part 1 answer: {part1}")
+
+        part2 = count_total_fresh_ids(ranges)
+        print(f"Part 2 answer: {part2}")
     else:
         print("No input.txt found. Provide input via file or stdin:")
         print("  python3 solution.py < input.txt")
